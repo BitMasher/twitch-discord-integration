@@ -102,10 +102,14 @@ func SubscribeWebhooks(ctx context.Context, m PubSubMessage) error {
 		}
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tokens.AccessToken))
 		req.Header.Add("Client-ID", os.Getenv("clientid"))
-		req.Header.Add("Content-Type", "application/json")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return err
+		}
+
+		if resp.StatusCode >= 300 {
+			fmt.Println(ioutil.ReadAll(resp.Body))
+			return errors.New("failed to load user")
 		}
 
 		var userDets TwitchUser
@@ -113,7 +117,7 @@ func SubscribeWebhooks(ctx context.Context, m PubSubMessage) error {
 			return err
 		}
 
-		str := fmt.Sprintf("{\"hub.callback\": \"https://us-central1-bitmasher-dev.cloudfunctions.net/twitch-webhook?userid=%s\",\"hub.mode\": \"subscribe\",\"hub.topic\":\"https://api.twitch.tv/helix/streams?user_id=%s\",\"hub.lease_seconds\": \"864000\",\"hub.secret\": \"%s\"}", rootConfig.Watchlist[i], os.Getenv("clientsecret"))
+		str := fmt.Sprintf("{\"hub.callback\": \"https://us-central1-bitmasher-dev.cloudfunctions.net/twitch-webhook?userid=%s\",\"hub.mode\": \"subscribe\",\"hub.topic\":\"https://api.twitch.tv/helix/streams?user_id=%s\",\"hub.lease_seconds\": \"864000\",\"hub.secret\": \"%s\"}", userDets.Id, os.Getenv("clientsecret"))
 		req, err = http.NewRequest("POST", "https://api.twitch.tv/helix/webhooks/hub", strings.NewReader(str))
 		if err != nil {
 			return err
