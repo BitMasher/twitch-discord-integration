@@ -117,6 +117,8 @@ func SubscribeWebhooks(ctx context.Context, m PubSubMessage) error {
 			return err
 		}
 
+		fmt.Printf("%+v\n", userDets)
+
 		str := fmt.Sprintf("{\"hub.callback\": \"https://us-central1-bitmasher-dev.cloudfunctions.net/twitch-webhook?userid=%s\",\"hub.mode\": \"subscribe\",\"hub.topic\":\"https://api.twitch.tv/helix/streams?user_id=%s\",\"hub.lease_seconds\": \"864000\",\"hub.secret\": \"%s\"}", userDets.Id, os.Getenv("clientsecret"))
 		req, err = http.NewRequest("POST", "https://api.twitch.tv/helix/webhooks/hub", strings.NewReader(str))
 		if err != nil {
