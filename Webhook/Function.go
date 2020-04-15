@@ -32,19 +32,14 @@ func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 	userId := r.URL.Query().Get("userid")
 	var d TwitchPayload
 	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
-		if len(d.Data) > 0 {
-			for i := range d.Data {
-				fmt.Printf("Stream for %s is %s\n", d.Data[i].UserName, d.Data[i].StreamType)
-				fmt.Fprintf(w, "Stream for %s is %s\n", d.Data[i].UserName, d.Data[i].StreamType)
-			}
-		} else {
-			fmt.Fprintf(w, "Stream for %s is offline\n", userId)
+		panic(err)
+	}
+	if len(d.Data) > 0 {
+		for i := range d.Data {
+			fmt.Printf("Stream for %s is %s\n", d.Data[i].UserName, d.Data[i].StreamType)
+			fmt.Fprintf(w, "Stream for %s is %s\n", d.Data[i].UserName, d.Data[i].StreamType)
 		}
-		return
 	} else {
-		fmt.Println(err)
-		fmt.Fprintln(w, err)
-		fmt.Println(r.Body)
-		fmt.Fprintln(w, r.Body)
+		fmt.Fprintf(w, "Stream for %s is offline\n", userId)
 	}
 }
