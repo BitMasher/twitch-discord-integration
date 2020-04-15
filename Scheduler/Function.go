@@ -3,6 +3,7 @@ package Scheduler
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
@@ -25,6 +26,11 @@ func SubscribeWebhooks(w http.ResponseWriter, r *http.Request) {
 	resp, err := http.Post(oauthUrl.String(), "application/json", strings.NewReader(""))
 	if err != nil {
 		panic(err)
+	}
+
+	if resp.StatusCode >= 300 {
+		fmt.Println(ioutil.ReadAll(resp.Body))
+		fmt.Printf("%+v\n", resp)
 	}
 
 	var d TwitchTokens
