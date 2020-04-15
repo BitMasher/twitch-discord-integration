@@ -34,6 +34,15 @@ type TwitchPayload struct {
 }
 
 func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
+	if len(r.URL.Query().Get("hub.challenge")) > 0 {
+		fmt.Fprint(w, r.URL.Query().Get("hub.challenge"))
+		return
+	}
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(body)
 	signature := r.Header.Get("X-Hub-Signature")
 	if len(signature) > 0 {
 		sigParts := strings.Split(signature, "=")
@@ -42,10 +51,6 @@ func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	mac := hmac.New(sha256.New, []byte(os.Getenv("clientsecret")))
-	body, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		panic(err)
-	}
 	mac.Write(body)
 	resMac := mac.Sum(nil)
 	if !strings.EqualFold(signature, hex.EncodeToString(resMac)) {
@@ -55,7 +60,7 @@ func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 
 	userId := r.URL.Query().Get("userid")
 	var d TwitchPayload
-	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
+	if err := json.NewDecoder(strings.NewReader(body)).Decode(&d); err != nil {
 		panic(err)
 	}
 	if len(d.Data) > 0 {
