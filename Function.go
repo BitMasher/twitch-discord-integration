@@ -41,5 +41,10 @@ func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "Stream for %s is offline\n", userId)
 		}
 		return
+	} else {
+		fmt.Println(err)
+		fmt.Fprintln(w, err)
+		fmt.Println(r.Body)
+		fmt.Fprintln(w, r.Body)
 	}
 }
