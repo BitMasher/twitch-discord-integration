@@ -60,7 +60,7 @@ func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 
 	userId := r.URL.Query().Get("userid")
 	var d TwitchPayload
-	if err := json.NewDecoder(strings.NewReader(body)).Decode(&d); err != nil {
+	if err := json.NewDecoder(strings.NewReader(string(body))).Decode(&d); err != nil {
 		panic(err)
 	}
 	if len(d.Data) > 0 {
