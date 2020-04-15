@@ -116,8 +116,6 @@ func SubscribeWebhooks(ctx context.Context, m PubSubMessage) error {
 			return errors.New("failed to load user")
 		}
 
-		fmt.Println(ioutil.ReadAll(resp.Body))
-
 		var userDets TwitchUserResponse
 		if err = json.NewDecoder(resp.Body).Decode(&userDets); err != nil {
 			return err
