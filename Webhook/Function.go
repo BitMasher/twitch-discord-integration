@@ -15,18 +15,18 @@ import (
 )
 
 type TwitchStreamInfo struct {
-	GameId       string `json:"game_id"`
-	Id           string `json:"id"`
-	Language     string `json:"language"`
-	Pagination   string `json:"pagination"`
-	StartedAt    string `json:"started_at"`
-	TagIds       string `json:"tag_ids"`
-	ThumbnailUrl string `json:"thumbnail_url"`
-	Title        string `json:"title"`
-	StreamType   string `json:"type"`
-	UserId       string `json:"user_id"`
-	UserName     string `json:"user_name"`
-	ViewerCount  int    `json:"viewer_count"`
+	GameId       string   `json:"game_id"`
+	Id           string   `json:"id"`
+	Language     string   `json:"language"`
+	Pagination   string   `json:"pagination"`
+	StartedAt    string   `json:"started_at"`
+	TagIds       []string `json:"tag_ids"`
+	ThumbnailUrl string   `json:"thumbnail_url"`
+	Title        string   `json:"title"`
+	StreamType   string   `json:"type"`
+	UserId       string   `json:"user_id"`
+	UserName     string   `json:"user_name"`
+	ViewerCount  int      `json:"viewer_count"`
 }
 
 type TwitchPayload struct {
