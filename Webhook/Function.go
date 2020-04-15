@@ -26,8 +26,6 @@ type TwitchPayload struct {
 	Data []TwitchStreamInfo
 }
 
-// HelloWorld prints the JSON encoded "message" field in the body
-// of the request or "Hello, World!" if there isn't one.
 func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 	userId := r.URL.Query().Get("userid")
 	var d TwitchPayload
