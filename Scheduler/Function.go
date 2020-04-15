@@ -102,6 +102,7 @@ func SubscribeWebhooks(ctx context.Context, m PubSubMessage) error {
 		}
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tokens.AccessToken))
 		req.Header.Add("Client-ID", os.Getenv("clientid"))
+		req.Header.Add("Content-Type", "application/json")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			return err
@@ -119,6 +120,7 @@ func SubscribeWebhooks(ctx context.Context, m PubSubMessage) error {
 		}
 		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tokens.AccessToken))
 		req.Header.Add("Client-ID", os.Getenv("clientid"))
+		req.Header.Add("Content-Type", "application/json")
 		resp, err = http.DefaultClient.Do(req)
 		if err != nil {
 			return err

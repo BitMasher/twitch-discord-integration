@@ -2,8 +2,13 @@
 package p
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
@@ -29,6 +34,19 @@ type TwitchPayload struct {
 }
 
 func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
+	signature := r.Header.Get("X-Hub-Signature")
+	mac := hmac.New(sha256.New, []byte(os.Getenv("clientsecret")))
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		panic(err)
+	}
+	mac.Write(body)
+	resMac := mac.Sum(nil)
+	if !strings.EqualFold(signature, hex.EncodeToString(resMac)) {
+		fmt.Print(errors.New("invalid signature, message rejected"))
+		return
+	}
+
 	userId := r.URL.Query().Get("userid")
 	var d TwitchPayload
 	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
