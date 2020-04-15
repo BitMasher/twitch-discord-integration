@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strings"
 )
 
 type TwitchStreamInfo struct {
@@ -36,8 +38,10 @@ func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 		for i := range d.Data {
 			fmt.Printf("Stream for %s is %s\n", d.Data[i].UserName, d.Data[i].StreamType)
 			fmt.Fprintf(w, "Stream for %s is %s\n", d.Data[i].UserName, d.Data[i].StreamType)
+			http.Post(os.Getenv("discorduri"), "application/json", strings.NewReader(fmt.Sprintf("{\"content\": \"Hey everyone %s is live!\nCurrently streaming %s\nhttps://twitch.tv/%s\"}", d.Data[i].UserName, d.Data[i].Title, d.Data[i].UserName)))
 		}
 	} else {
 		fmt.Fprintf(w, "Stream for %s is offline\n", userId)
+		http.Post(os.Getenv("discorduri"), "application/json", strings.NewReader(fmt.Sprintf("{\"content\": \"Aww %s has finished streaming, you just missed em\"}", userId)))
 	}
 }
