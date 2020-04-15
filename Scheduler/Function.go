@@ -60,6 +60,10 @@ type TwitchUser struct {
 	ViewCount       int    `json:"view_count"`
 }
 
+type TwitchUserResponse struct {
+	Data []TwitchUser `json:"data"`
+}
+
 type RootConfig struct {
 	Watchlist []string `firestore:"watchlist"`
 }
@@ -114,14 +118,18 @@ func SubscribeWebhooks(ctx context.Context, m PubSubMessage) error {
 
 		fmt.Println(ioutil.ReadAll(resp.Body))
 
-		var userDets TwitchUser
+		var userDets TwitchUserResponse
 		if err = json.NewDecoder(resp.Body).Decode(&userDets); err != nil {
 			return err
 		}
 
-		fmt.Printf("%+v\n", &userDets)
+		fmt.Printf("%+v\n", userDets)
 
-		str := fmt.Sprintf("{\"hub.callback\": \"https://us-central1-bitmasher-dev.cloudfunctions.net/twitch-webhook?userid=%s\",\"hub.mode\": \"subscribe\",\"hub.topic\":\"https://api.twitch.tv/helix/streams?user_id=%s\",\"hub.lease_seconds\": \"864000\",\"hub.secret\": \"%s\"}", userDets.Id, os.Getenv("clientsecret"))
+		if len(userDets.Data) == 0 {
+			continue
+		}
+
+		str := fmt.Sprintf("{\"hub.callback\": \"https://us-central1-bitmasher-dev.cloudfunctions.net/twitch-webhook?userid=%s\",\"hub.mode\": \"subscribe\",\"hub.topic\":\"https://api.twitch.tv/helix/streams?user_id=%s\",\"hub.lease_seconds\": \"864000\",\"hub.secret\": \"%s\"}", userDets.Data[0].Id, os.Getenv("clientsecret"))
 		req, err = http.NewRequest("POST", "https://api.twitch.tv/helix/webhooks/hub", strings.NewReader(str))
 		if err != nil {
 			return err
