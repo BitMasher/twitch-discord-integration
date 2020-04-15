@@ -35,6 +35,12 @@ type TwitchPayload struct {
 
 func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 	signature := r.Header.Get("X-Hub-Signature")
+	if len(signature) > 0 {
+		sigParts := strings.Split(signature, "=")
+		if len(sigParts) > 1 {
+			signature = sigParts[1]
+		}
+	}
 	mac := hmac.New(sha256.New, []byte(os.Getenv("clientsecret")))
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -43,7 +49,7 @@ func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 	mac.Write(body)
 	resMac := mac.Sum(nil)
 	if !strings.EqualFold(signature, hex.EncodeToString(resMac)) {
-		fmt.Print(errors.New("invalid signature, message rejected"))
+		fmt.Print(errors.New(fmt.Sprintf("invalid signature, message rejected\n%s - %s", signature, hex.EncodeToString(resMac))))
 		return
 	}
 
