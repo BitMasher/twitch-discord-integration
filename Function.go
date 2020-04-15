@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-type twitchStreamInfo struct {
+type TwitchStreamInfo struct {
 	GameId       string `json:"game_id"`
 	Id           string `json:"id"`
 	Language     string `json:"language"`
@@ -22,15 +22,15 @@ type twitchStreamInfo struct {
 	ViewerCount  int    `json:"viewer_count"`
 }
 
-type twitchPayload struct {
-	Data []twitchStreamInfo
+type TwitchPayload struct {
+	Data []TwitchStreamInfo
 }
 
 // HelloWorld prints the JSON encoded "message" field in the body
 // of the request or "Hello, World!" if there isn't one.
 func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 	userId := r.URL.Query().Get("userid")
-	var d twitchPayload
+	var d TwitchPayload
 	if err := json.NewDecoder(r.Body).Decode(&d); err != nil {
 		if len(d.Data) > 0 {
 			for i := range d.Data {
