@@ -55,6 +55,7 @@ func PostDiscordMessage(channelId string, message string) {
 	if err != nil {
 		panic(err)
 	}
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", fmt.Sprintf("Bot %s", os.Getenv("discordtoken")))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
