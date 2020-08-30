@@ -83,6 +83,7 @@ func GetDiscordGuildRoles(guildId string) ([]DiscordRole, error) {
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
+	fmt.Println(string(body))
 	if err != nil {
 		return nil, err
 	}
