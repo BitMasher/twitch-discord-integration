@@ -82,8 +82,12 @@ func GetDiscordGuildRoles(guildId string) ([]DiscordRole, error) {
 		return nil, errors.New("failed to fetch roles for guild")
 	}
 
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 	var roles []DiscordRole
-	if err := json.NewDecoder(resp.Body).Decode(&roles); err != nil {
+	if err := json.Unmarshal(body, &roles); err != nil {
 		return nil, err
 	}
 
@@ -122,8 +126,12 @@ func GetDiscordGuildMembers(guildId string) ([]DiscordMember, error) {
 		return nil, errors.New("failed to fetch members for guild")
 	}
 
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
 	var members []DiscordMember
-	if err := json.NewDecoder(resp.Body).Decode(&members); err != nil {
+	if err := json.Unmarshal(body, &members); err != nil {
 		return nil, err
 	}
 
