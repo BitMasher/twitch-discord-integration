@@ -64,8 +64,83 @@ type TwitchUserResponse struct {
 	Data []TwitchUser `json:"data"`
 }
 
+type DiscordRole struct {
+	Id             string `json:"id"`
+	Name           string `json:"name"`
+	Color          int    `json:"color"`
+	Hoist          bool   `json:"hoist"`
+	Position       int    `json:"position"`
+	Permissions    int    `json:"permissions"`
+	PermissionsNew string `json:"permissions_new"`
+	Managed        bool   `json:"managed"`
+	Mentionable    bool   `json:"mentionable"`
+}
+
+func GetDiscordGuildRoles(guildId string) ([]DiscordRole, error) {
+	resp, err := http.Get(fmt.Sprintf("https://discord.com/api/v6/guilds/%s/roles", guildId))
+	if err != nil {
+		return nil, errors.New("failed to fetch roles for guild")
+	}
+
+	var roles []DiscordRole
+	if err := json.NewDecoder(resp.Body).Decode(&roles); err != nil {
+		return nil, err
+	}
+
+	return roles, nil
+}
+
+type DiscordUser struct {
+	Id            string `json:"id"`
+	Username      string `json:"username"`
+	Discriminator string `json:"discriminator"`
+	Avatar        string `json:"avatar"`
+	Bot           bool   `json:"bot"`
+	System        bool   `json:"system"`
+	MfaEnabled    bool   `json:"mfa_enabled"`
+	Locale        string `json:"locale"`
+	Verified      bool   `json:"verified"`
+	Email         string `json:"email"`
+	Flags         int    `json:"flags"`
+	PremiumType   int    `json:"premium_type"`
+	PublicFlags   int    `json:"public_flags"`
+}
+
+type DiscordMember struct {
+	User         DiscordUser `json:"user"`
+	Nick         string      `json:"nick"`
+	Roles        []string    `json:"roles"`
+	JoinedAt     int64       `json:"joined_at"`
+	PremiumSince int64       `json:"premium_since"`
+	Deaf         bool        `json:"deaf"`
+	Mute         bool        `json:"mute"`
+}
+
+func GetDiscordGuildMembers(guildId string) ([]DiscordMember, error) {
+	resp, err := http.Get(fmt.Sprintf("https://discord.com/api/v6/guilds/%s/members", guildId))
+	if err != nil {
+		return nil, errors.New("failed to fetch members for guild")
+	}
+
+	var members []DiscordMember
+	if err := json.NewDecoder(resp.Body).Decode(&members); err != nil {
+		return nil, err
+	}
+
+	return members, nil
+}
+
 type RootConfig struct {
 	Watchlist []string `firestore:"watchlist"`
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
 
 type PubSubMessage struct {
@@ -95,53 +170,133 @@ func SubscribeWebhooks(ctx context.Context, m PubSubMessage) error {
 		return err
 	}
 
+	guildSnap, err := configCol.Doc("guildconfigs").Get(ctx)
+	if err != nil {
+		return err
+	}
+
+	if !guildSnap.Exists() {
+		fmt.Println("no configs exist")
+		return nil
+	}
+
+	var guildChannels map[string]string
+	err = guildSnap.DataTo(&guildChannels)
+	if err != nil {
+		return err
+	}
+
 	tokens, err := GetClientToken()
 	if err != nil {
 		return err
 	}
 	for i := range rootConfig.Watchlist {
-		req, err := http.NewRequest("GET", fmt.Sprintf("https://api.twitch.tv/helix/users?login=%s", rootConfig.Watchlist[i]), nil)
-		if err != nil {
-			return err
-		}
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tokens.AccessToken))
-		req.Header.Add("Client-ID", os.Getenv("clientid"))
-		resp, err := http.DefaultClient.Do(req)
+
+		// get roles for guild to find id of streamer role
+		guildRoles, err := GetDiscordGuildRoles(rootConfig.Watchlist[i])
 		if err != nil {
 			return err
 		}
 
-		if resp.StatusCode >= 300 {
-			fmt.Println(ioutil.ReadAll(resp.Body))
-			return errors.New("failed to load user")
+		// find the streamer role
+		streamerRole := ""
+		for ir := range guildRoles {
+			if strings.EqualFold(guildRoles[ir].Name, "streamer") {
+				streamerRole = guildRoles[ir].Id
+			}
 		}
 
-		var userDets TwitchUserResponse
-		if err = json.NewDecoder(resp.Body).Decode(&userDets); err != nil {
-			return err
-		}
-
-		fmt.Printf("%+v\n", userDets)
-
-		if len(userDets.Data) == 0 {
+		// no streamer role? no integration for you!
+		if len(streamerRole) == 0 {
 			continue
 		}
 
-		str := fmt.Sprintf("{\"hub.callback\": \"https://us-central1-bitmasher-dev.cloudfunctions.net/twitch-webhook?userid=%s\",\"hub.mode\": \"subscribe\",\"hub.topic\":\"https://api.twitch.tv/helix/streams?user_id=%s\",\"hub.lease_seconds\": \"864000\",\"hub.secret\": \"%s\"}", userDets.Data[0].Login, userDets.Data[0].Id, os.Getenv("clientsecret"))
-		req, err = http.NewRequest("POST", "https://api.twitch.tv/helix/webhooks/hub", strings.NewReader(str))
+		guildMembers, err := GetDiscordGuildMembers(rootConfig.Watchlist[i])
 		if err != nil {
 			return err
 		}
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tokens.AccessToken))
-		req.Header.Add("Client-ID", os.Getenv("clientid"))
-		req.Header.Add("Content-Type", "application/json")
-		resp, err = http.DefaultClient.Do(req)
-		if err != nil {
-			return err
-		}
-		if resp.StatusCode >= 300 {
-			fmt.Println(ioutil.ReadAll(resp.Body))
-			return errors.New("failed to create webhook")
+
+		for im := range guildMembers {
+
+			if !contains(guildMembers[im].Roles, streamerRole) {
+				continue
+			}
+
+			streamerName := guildMembers[im].User.Username
+			if len(guildMembers[im].Nick) > 0 {
+				streamerName = guildMembers[im].Nick
+			}
+
+			req, err := http.NewRequest("GET", fmt.Sprintf("https://api.twitch.tv/helix/users?login=%s", streamerName), nil)
+			if err != nil {
+				return err
+			}
+			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tokens.AccessToken))
+			req.Header.Add("Client-ID", os.Getenv("clientid"))
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				return err
+			}
+
+			if resp.StatusCode >= 300 {
+				fmt.Println(ioutil.ReadAll(resp.Body))
+				return errors.New("failed to load user")
+			}
+
+			var userDets TwitchUserResponse
+			if err = json.NewDecoder(resp.Body).Decode(&userDets); err != nil {
+				return err
+			}
+
+			fmt.Printf("%+v\n", userDets)
+
+			if len(userDets.Data) == 0 {
+				continue
+			}
+
+			str := fmt.Sprintf("{\"hub.callback\": \"%s?userid=%s\",\"hub.mode\": \"subscribe\",\"hub.topic\":\"https://api.twitch.tv/helix/streams?user_id=%s\",\"hub.lease_seconds\": \"864000\",\"hub.secret\": \"%s\"}", os.Getenv("callbackUri"), userDets.Data[0].Login, userDets.Data[0].Id, os.Getenv("clientsecret"))
+			req, err = http.NewRequest("POST", "https://api.twitch.tv/helix/webhooks/hub", strings.NewReader(str))
+			if err != nil {
+				return err
+			}
+			req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", tokens.AccessToken))
+			req.Header.Add("Client-ID", os.Getenv("clientid"))
+			req.Header.Add("Content-Type", "application/json")
+			resp, err = http.DefaultClient.Do(req)
+			if err != nil {
+				return err
+			}
+			if resp.StatusCode >= 300 {
+				fmt.Println(ioutil.ReadAll(resp.Body))
+				return errors.New("failed to create webhook")
+			}
+
+			userSnap, err := configCol.Doc("usermap").Get(ctx)
+			if err != nil {
+				return err
+			}
+
+			if !userSnap.Exists() {
+				fmt.Println("no configs exist")
+				return nil
+			}
+			var userMap map[string][]string
+			err = userSnap.DataTo(&userMap)
+			if err != nil {
+				return err
+			}
+
+			if uMap, ok := userMap[userDets.Data[0].Login]; ok {
+				if !contains(uMap, guildChannels[rootConfig.Watchlist[i]]) {
+					uMap = append(uMap, guildChannels[rootConfig.Watchlist[i]])
+					userMap[userDets.Data[0].Login] = uMap
+				}
+			}
+			_, err = configCol.Doc("usermap").Set(ctx, userMap)
+			if err != nil {
+				return err
+			}
+
 		}
 	}
 	return nil

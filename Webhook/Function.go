@@ -58,6 +58,25 @@ func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	/**
+		guildSnap, err := configCol.Doc("guildconfigs").Get(ctx)
+	if err != nil {
+		return err
+	}
+
+	if !guildSnap.Exists() {
+		fmt.Println("no configs exist")
+		return nil
+	}
+
+	var guildChannels map[string]string
+	err = guildSnap.DataTo(&guildChannels)
+	if err != nil {
+		return err
+	}
+	 */
+
+
 	userId := r.URL.Query().Get("userid")
 	var d TwitchPayload
 	if err := json.NewDecoder(strings.NewReader(string(body))).Decode(&d); err != nil {
