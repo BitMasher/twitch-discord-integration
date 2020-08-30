@@ -42,6 +42,8 @@ type DiscordMessage struct {
 
 func PostDiscordMessage(channelId string, message string) {
 
+	fmt.Printf("Posting message %s to channel %s\n", message, channelId)
+
 	msg := DiscordMessage{Content: message}
 
 	jsonMsgBytes, err := json.Marshal(msg)
@@ -54,9 +56,17 @@ func PostDiscordMessage(channelId string, message string) {
 		panic(err)
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bot %s", os.Getenv("discordtoken")))
-	_, err = http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		panic(err)
+	}
+
+	if resp.StatusCode >= 300 {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("Got bad status %d with response %s\n", resp.StatusCode, body)
 	}
 }
 
@@ -124,6 +134,7 @@ func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "Stream for %s is %s\n", d.Data[i].UserName, d.Data[i].StreamType)
 
 			for i := range userMap[userId] {
+
 				PostDiscordMessage(userMap[userId][i], fmt.Sprintf("Hey everyone %s is live!\nCurrently streaming %s\nhttps://twitch.tv/%s", d.Data[i].UserName, d.Data[i].Title, d.Data[i].UserName))
 			}
 		}
