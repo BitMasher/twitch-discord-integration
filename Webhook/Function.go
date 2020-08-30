@@ -2,6 +2,9 @@
 package p
 
 import (
+	"bytes"
+	"cloud.google.com/go/firestore"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
@@ -33,6 +36,30 @@ type TwitchPayload struct {
 	Data []TwitchStreamInfo
 }
 
+type DiscordMessage struct {
+	Content string `json:"content"`
+}
+
+func PostDiscordMessage(channelId string, message string) {
+
+	msg := DiscordMessage{Content: message}
+
+	jsonMsgBytes, err := json.Marshal(msg)
+	if err != nil {
+		panic(err)
+	}
+
+	req, err := http.NewRequest("POST", fmt.Sprintf("https://discord.com/api/v6/channels/%s/messages", channelId), bytes.NewReader(jsonMsgBytes))
+	if err != nil {
+		panic(err)
+	}
+	req.Header.Add("Authorization", fmt.Sprintf("Bot %s", os.Getenv("discordtoken")))
+	_, err = http.DefaultClient.Do(req)
+	if err != nil {
+		panic(err)
+	}
+}
+
 func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 	if len(r.URL.Query().Get("hub.challenge")) > 0 {
 		fmt.Fprint(w, r.URL.Query().Get("hub.challenge"))
@@ -58,26 +85,35 @@ func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	/**
-		guildSnap, err := configCol.Doc("guildconfigs").Get(ctx)
+	client, err := firestore.NewClient(context.Background(), "bitmasher-dev")
 	if err != nil {
-		return err
+		panic(err)
+	}
+	defer client.Close()
+
+	configCol := client.Collection("Configs")
+	userSnap, err := configCol.Doc("usermap").Get(context.Background())
+	if err != nil {
+		panic(err)
 	}
 
-	if !guildSnap.Exists() {
+	if !userSnap.Exists() {
 		fmt.Println("no configs exist")
-		return nil
+		return
 	}
-
-	var guildChannels map[string]string
-	err = guildSnap.DataTo(&guildChannels)
+	var userMap map[string][]string
+	err = userSnap.DataTo(&userMap)
 	if err != nil {
-		return err
+		panic(err)
 	}
-	 */
-
 
 	userId := r.URL.Query().Get("userid")
+
+	if _, ok := userMap[userId]; !ok {
+		fmt.Printf("Got twitch notification for unmapped user %s\n", userId)
+		return
+	}
+
 	var d TwitchPayload
 	if err := json.NewDecoder(strings.NewReader(string(body))).Decode(&d); err != nil {
 		panic(err)
@@ -86,7 +122,10 @@ func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 		for i := range d.Data {
 			fmt.Printf("Stream for %s is %s\n", d.Data[i].UserName, d.Data[i].StreamType)
 			fmt.Fprintf(w, "Stream for %s is %s\n", d.Data[i].UserName, d.Data[i].StreamType)
-			http.Post(os.Getenv("discorduri"), "application/json", strings.NewReader(fmt.Sprintf("{\"content\": \"Hey everyone %s is live!\\nCurrently streaming %s\\nhttps://twitch.tv/%s\"}", d.Data[i].UserName, d.Data[i].Title, d.Data[i].UserName)))
+
+			for i := range userMap[userId] {
+				PostDiscordMessage(userMap[userId][i], fmt.Sprintf("Hey everyone %s is live!\nCurrently streaming %s\nhttps://twitch.tv/%s", d.Data[i].UserName, d.Data[i].Title, d.Data[i].UserName))
+			}
 		}
 	} else {
 		fmt.Fprintf(w, "Stream for %s is offline\n", userId)

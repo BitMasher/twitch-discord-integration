@@ -77,13 +77,23 @@ type DiscordRole struct {
 }
 
 func GetDiscordGuildRoles(guildId string) ([]DiscordRole, error) {
-	resp, err := http.Get(fmt.Sprintf("https://discord.com/api/v6/guilds/%s/roles", guildId))
+	req, err := http.NewRequest("GET", fmt.Sprintf("https://discord.com/api/v6/guilds/%s/roles", guildId), strings.NewReader(""))
 	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Authorization", fmt.Sprintf("Bot %s", os.Getenv("discordtoken")))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 300 {
+		body, err := ioutil.ReadAll(resp.Body)
+		fmt.Println(string(body))
+		fmt.Print(err)
 		return nil, errors.New("failed to fetch roles for guild")
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(body))
 	if err != nil {
 		return nil, err
 	}
@@ -115,15 +125,26 @@ type DiscordMember struct {
 	User         DiscordUser `json:"user"`
 	Nick         string      `json:"nick"`
 	Roles        []string    `json:"roles"`
-	JoinedAt     int64       `json:"joined_at"`
-	PremiumSince int64       `json:"premium_since"`
+	JoinedAt     string       `json:"joined_at"`
+	PremiumSince string       `json:"premium_since"`
 	Deaf         bool        `json:"deaf"`
 	Mute         bool        `json:"mute"`
 }
 
 func GetDiscordGuildMembers(guildId string) ([]DiscordMember, error) {
-	resp, err := http.Get(fmt.Sprintf("https://discord.com/api/v6/guilds/%s/members", guildId))
+	req, err := http.NewRequest("GET", fmt.Sprintf("https://discord.com/api/v6/guilds/%s/members?limit=1000", guildId), strings.NewReader(""))
 	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Authorization", fmt.Sprintf("Bot %s", os.Getenv("discordtoken")))
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 300 {
+		body, err := ioutil.ReadAll(resp.Body)
+		fmt.Println(string(body))
+		fmt.Print(err)
 		return nil, errors.New("failed to fetch members for guild")
 	}
 
@@ -131,6 +152,7 @@ func GetDiscordGuildMembers(guildId string) ([]DiscordMember, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var members []DiscordMember
 	if err := json.Unmarshal(body, &members); err != nil {
 		return nil, err
@@ -248,8 +270,7 @@ func SubscribeWebhooks(ctx context.Context, m PubSubMessage) error {
 			}
 
 			if resp.StatusCode >= 300 {
-				fmt.Println(ioutil.ReadAll(resp.Body))
-				return errors.New("failed to load user")
+				continue
 			}
 
 			var userDets TwitchUserResponse
@@ -263,7 +284,7 @@ func SubscribeWebhooks(ctx context.Context, m PubSubMessage) error {
 				continue
 			}
 
-			str := fmt.Sprintf("{\"hub.callback\": \"%s?userid=%s\",\"hub.mode\": \"subscribe\",\"hub.topic\":\"https://api.twitch.tv/helix/streams?user_id=%s\",\"hub.lease_seconds\": \"864000\",\"hub.secret\": \"%s\"}", os.Getenv("callbackUri"), userDets.Data[0].Login, userDets.Data[0].Id, os.Getenv("clientsecret"))
+			str := fmt.Sprintf("{\"hub.callback\": \"%s?userid=%s\",\"hub.mode\": \"subscribe\",\"hub.topic\":\"https://api.twitch.tv/helix/streams?user_id=%s\",\"hub.lease_seconds\": \"864000\",\"hub.secret\": \"%s\"}", os.Getenv("callbackuri"), userDets.Data[0].Login, userDets.Data[0].Id, os.Getenv("clientsecret"))
 			req, err = http.NewRequest("POST", "https://api.twitch.tv/helix/webhooks/hub", strings.NewReader(str))
 			if err != nil {
 				return err
@@ -300,12 +321,15 @@ func SubscribeWebhooks(ctx context.Context, m PubSubMessage) error {
 					uMap = append(uMap, guildChannels[rootConfig.Watchlist[i]])
 					userMap[userDets.Data[0].Login] = uMap
 				}
+			} else {
+				uMap = []string{guildChannels[rootConfig.Watchlist[i]]}
+				userMap[userDets.Data[0].Login] = uMap
 			}
 			_, err = configCol.Doc("usermap").Set(ctx, userMap)
 			if err != nil {
 				return err
 			}
-
+			fmt.Printf("%v\n", userMap)
 		}
 	}
 	return nil
