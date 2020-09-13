@@ -141,6 +141,8 @@ func TwitchWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		fmt.Fprintf(w, "Stream for %s is offline\n", userId)
-		http.Post(os.Getenv("discorduri"), "application/json", strings.NewReader(fmt.Sprintf("{\"content\": \"Aww %s has finished streaming, you just missed em\"}", userId)))
+		for i := range userMap[userId] {
+			PostDiscordMessage(userMap[userId][i], fmt.Sprintf("Aww %s has finished streaming, you just missed em", userId))
+		}
 	}
 }
